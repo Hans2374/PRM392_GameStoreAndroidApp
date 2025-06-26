@@ -9,6 +9,8 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import com.example.gamestore.adapters.AccessoryAdapter;
 import com.example.gamestore.models.Accessory;
+import com.example.gamestore.models.CartItem;
+import com.example.gamestore.repository.CartRepository;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,6 +18,7 @@ public class AccessoryActivity extends AppCompatActivity {
     private ListView listView;
     private List<Accessory> accessoryList;
     private int selectedPosition = -1;
+    private CartRepository cartRepository;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,6 +33,9 @@ public class AccessoryActivity extends AppCompatActivity {
 
         listView = findViewById(R.id.listViewAccessories);
         Button btnOrder = findViewById(R.id.btnOrderAccessory);
+
+        // Initialize cart repository
+        cartRepository = new CartRepository(getApplication());
 
         accessoryList = new ArrayList<>();
         accessoryList.add(new Accessory("Gaming Headset", "7.1 Surround Sound", 120, R.drawable.accessory1));
@@ -52,13 +58,45 @@ public class AccessoryActivity extends AppCompatActivity {
         btnOrder.setOnClickListener(v -> {
             if (selectedPosition != -1) {
                 Accessory selected = accessoryList.get(selectedPosition);
-                Intent intent = new Intent();
-                intent.putExtra("name", selected.getName());
-                intent.putExtra("price", selected.getPrice());
-                setResult(RESULT_OK, intent);
-                finish();
+
+                // Add to cart instead of returning to MainActivity
+                addToCart(selected);
             } else {
                 Toast.makeText(this, "Please select an accessory", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void addToCart(Accessory accessory) {
+        // Create CartItem from Accessory
+        CartItem cartItem = new CartItem(
+                accessory.getName(),
+                accessory.getDescription(),
+                accessory.getPrice(),
+                1, // Default quantity
+                "accessory",
+                accessory.getImageResource()
+        );
+
+        // Add to cart using multi-threading
+        cartRepository.addToCart(cartItem, new CartRepository.DataCallback<Boolean>() {
+            @Override
+            public void onComplete(Boolean result) {
+                Toast.makeText(AccessoryActivity.this,
+                        accessory.getName() + " added to cart!", Toast.LENGTH_SHORT).show();
+
+                // Return to MainActivity
+                Intent intent = new Intent();
+                intent.putExtra("name", accessory.getName());
+                intent.putExtra("price", accessory.getPrice());
+                setResult(RESULT_OK, intent);
+                finish();
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Toast.makeText(AccessoryActivity.this,
+                        "Error adding to cart: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }
